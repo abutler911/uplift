@@ -22,26 +22,23 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) callback(null, true);
       else callback(new Error("Not allowed by CORS"));
     },
-    credentials: false,
   }),
 );
 
 app.use(express.json());
 
-// Public routes
-app.use("/api/auth", authRouter);
-app.get("/api/posts/public", require("./routes/posts").publicHandler);
-app.get(
-  "/api/posts/public/:slug",
-  require("./routes/posts").publicSingleHandler,
-);
-
-// Protected routes
-app.use("/api", authMiddleware);
-app.use("/api/posts", postsRouter);
-
 // Health check
 app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+// Auth — unprotected
+app.use("/api/auth", authRouter);
+
+// Public post routes — unprotected
+app.get("/api/posts/public", postsRouter.publicHandler);
+app.get("/api/posts/public/:slug", postsRouter.publicSingleHandler);
+
+// Protected routes
+app.use("/api/posts", authMiddleware, postsRouter);
 
 mongoose
   .connect(process.env.MONGODB_URI)

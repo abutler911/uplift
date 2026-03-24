@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <circle cx="16" cy="16" r="16" fill="#c17a3c"/>
+  <polygon points="16,3 13.5,13 18.5,13" fill="white" opacity="0.95"/>
+  <polygon points="16,29 13.5,19 18.5,19" fill="white" opacity="0.6"/>
+  <polygon points="29,16 19,13.5 19,18.5" fill="white" opacity="0.6"/>
+  <polygon points="3,16 13,13.5 13,18.5" fill="white" opacity="0.6"/>
+  <polygon points="26,6 18.5,13.5 21,18" fill="white" opacity="0.3"/>
+  <polygon points="26,26 18.5,18.5 14,21" fill="white" opacity="0.3"/>
+  <polygon points="6,26 13.5,18.5 11,14" fill="white" opacity="0.3"/>
+  <polygon points="6,6 13.5,13.5 18,11" fill="white" opacity="0.3"/>
+  <circle cx="16" cy="16" r="2.5" fill="#c17a3c" stroke="white" stroke-width="1.5"/>
+  <text x="16" y="11.5" text-anchor="middle" font-family="Georgia,serif" font-size="4" font-weight="bold" fill="white" opacity="0.9">N</text>
+</svg>

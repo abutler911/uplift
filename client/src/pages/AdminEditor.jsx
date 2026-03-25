@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { adminGetPost, adminCreatePost, adminUpdatePost } from "../api";
+import RichTextEditor from "../components/RichTextEditor";
+import Toast from "../components/Toast";
+import useToast from "../hooks/useToast";
 
 const CATEGORIES = [
   "Small Wins",
@@ -14,6 +17,7 @@ export default function AdminEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
+  const { toast, showToast, hideToast } = useToast();
 
   const [form, setForm] = useState({
     title: "",
@@ -28,15 +32,12 @@ export default function AdminEditor() {
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
-  const [saved, setSaved] = useState(false);
 
-  // Check auth
   useEffect(() => {
     const token = localStorage.getItem("uplift_token");
     if (!token) navigate("/admin/login");
   }, []);
 
-  // Load existing post
   useEffect(() => {
     if (!isEdit) return;
     adminGetPost(id)
@@ -61,22 +62,29 @@ export default function AdminEditor() {
     setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleSave = async (status) => {
-    if (!form.title.trim()) return alert("Title is required");
-    if (!form.body.trim()) return alert("Body is required");
+    if (!form.title.trim()) return showToast("Title is required", "error");
+    if (!form.body.trim() || form.body === "<p></p>")
+      return showToast("Body is required", "error");
     setSaving(true);
     try {
       const data = { ...form, status };
       if (isEdit) {
         await adminUpdatePost(id, data);
+        showToast(
+          status === "published" ? "Published!" : "Draft saved",
+          "success",
+        );
       } else {
         const res = await adminCreatePost(data);
+        showToast(
+          status === "published" ? "Published!" : "Draft saved",
+          "success",
+        );
         navigate(`/admin/edit/${res.data._id}`, { replace: true });
       }
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
       setForm((f) => ({ ...f, status }));
     } catch (err) {
-      alert("Save failed: " + err.message);
+      showToast("Save failed — try again", "error");
     } finally {
       setSaving(false);
     }
@@ -140,20 +148,16 @@ export default function AdminEditor() {
 
         {/* Post settings */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Status */}
           <div className="form-group">
             <label className="form-label">Status</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span
-                className={`status-badge status-badge--${form.status}`}
-                style={{ fontSize: "0.6rem", padding: "3px 8px" }}
-              >
-                {form.status}
-              </span>
-            </div>
+            <span
+              className={`status-badge status-badge--${form.status}`}
+              style={{ fontSize: "0.6rem", padding: "3px 8px" }}
+            >
+              {form.status}
+            </span>
           </div>
 
-          {/* Type */}
           <div className="form-group">
             <label className="form-label">Type</label>
             <select
@@ -167,7 +171,6 @@ export default function AdminEditor() {
             </select>
           </div>
 
-          {/* Category */}
           <div className="form-group">
             <label className="form-label">Category</label>
             <select
@@ -184,7 +187,6 @@ export default function AdminEditor() {
             </select>
           </div>
 
-          {/* Source (curated only) */}
           {form.type === "curated" && (
             <>
               <div className="form-group">
@@ -213,11 +215,15 @@ export default function AdminEditor() {
           )}
         </div>
 
+        {/* Nav links */}
         <div
           style={{
             marginTop: "auto",
             paddingTop: 16,
             borderTop: "1px solid var(--border)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
           }}
         >
           <Link
@@ -227,6 +233,26 @@ export default function AdminEditor() {
           >
             ← All Posts
           </Link>
+          <Link
+            to="/"
+            className="admin-nav-link"
+            style={{ display: "flex" }}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ↗ View Site
+          </Link>
+          {isEdit && form.status === "published" && (
+            <Link
+              to={`/post/${id}`}
+              className="admin-nav-link"
+              style={{ display: "flex" }}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              ↗ View Post
+            </Link>
+          )}
         </div>
       </aside>
 
@@ -238,36 +264,56 @@ export default function AdminEditor() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 32,
+            marginBottom: 28,
             flexWrap: "wrap",
             gap: 12,
           }}
         >
-          <h1
-            style={{
-              fontFamily: "var(--serif)",
-              fontSize: "1.6rem",
-              fontWeight: 300,
-              color: "var(--text-primary)",
-            }}
-          >
-            {isEdit ? "Edit Post" : "New Post"}
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={() => navigate("/admin")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-muted)",
+                cursor: "pointer",
+                fontFamily: "var(--mono)",
+                fontSize: "0.6rem",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: 0,
+              }}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Posts
+            </button>
+            <span style={{ color: "var(--border-bright)" }}>/</span>
+            <h1
+              style={{
+                fontFamily: "var(--serif)",
+                fontSize: "1.4rem",
+                fontWeight: 300,
+                color: "var(--text-primary)",
+              }}
+            >
+              {isEdit ? form.title || "Edit Post" : "New Post"}
+            </h1>
+          </div>
 
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {saved && (
-              <span
-                style={{
-                  fontFamily: "var(--mono)",
-                  fontSize: "0.58rem",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "#4a7a51",
-                }}
-              >
-                ✓ Saved
-              </span>
-            )}
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => handleSave("draft")}
@@ -279,18 +325,19 @@ export default function AdminEditor() {
               className="btn btn-primary btn-sm"
               onClick={() => handleSave("published")}
               disabled={saving}
+              style={{ minWidth: 100 }}
             >
               {saving
-                ? "Publishing…"
+                ? "Saving…"
                 : form.status === "published"
                   ? "Update"
-                  : "Publish"}
+                  : "Publish →"}
             </button>
           </div>
         </div>
 
         {/* Form */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
           {/* Title */}
           <div className="form-group">
             <label className="form-label">Title</label>
@@ -302,7 +349,7 @@ export default function AdminEditor() {
               placeholder="A good thing happened…"
               style={{
                 fontFamily: "var(--serif)",
-                fontSize: "1.4rem",
+                fontSize: "1.5rem",
                 padding: "12px 16px",
                 fontWeight: 400,
               }}
@@ -313,40 +360,45 @@ export default function AdminEditor() {
           <div className="form-group">
             <label className="form-label">
               Excerpt{" "}
-              <span style={{ color: "var(--text-muted)", fontWeight: 300 }}>
-                (optional — shown in card preview)
+              <span
+                style={{
+                  color: "var(--text-muted)",
+                  fontWeight: 300,
+                  textTransform: "none",
+                  letterSpacing: 0,
+                }}
+              >
+                — shown in card preview
               </span>
             </label>
             <textarea
               className="form-control"
               value={form.excerpt}
               onChange={set("excerpt")}
-              placeholder="A short summary or hook…"
+              placeholder="A short hook or summary…"
               rows={2}
-              style={{ minHeight: 70 }}
+              style={{ minHeight: 68 }}
             />
           </div>
 
           {/* Body */}
           <div className="form-group">
             <label className="form-label">Body</label>
-            <textarea
-              className="form-control"
+            <RichTextEditor
               value={form.body}
-              onChange={set("body")}
-              placeholder="Write your story here. Use double line breaks for new paragraphs."
-              rows={16}
-              style={{
-                minHeight: 360,
-                fontFamily: "var(--body-serif)",
-                fontSize: "1rem",
-                lineHeight: 1.8,
-              }}
+              onChange={(html) => setForm((f) => ({ ...f, body: html }))}
             />
           </div>
 
-          {/* Mobile save */}
-          <div style={{ display: "flex", gap: 8, paddingTop: 8 }}>
+          {/* Mobile save buttons */}
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              paddingTop: 8,
+              paddingBottom: 32,
+            }}
+          >
             <button
               className="btn btn-ghost"
               onClick={() => handleSave("draft")}
@@ -361,11 +413,20 @@ export default function AdminEditor() {
               disabled={saving}
               style={{ flex: 1 }}
             >
-              {form.status === "published" ? "Update" : "Publish"}
+              {form.status === "published" ? "Update" : "Publish →"}
             </button>
           </div>
         </div>
       </main>
+
+      {toast && (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </div>
   );
 }

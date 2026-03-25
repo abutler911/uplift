@@ -186,19 +186,71 @@ export default function PostPage() {
 
           {/* Body */}
           <div
-            style={{
-              fontFamily: "var(--body-serif)",
-              fontSize: "1.05rem",
-              lineHeight: 1.85,
-              color: "var(--text-secondary)",
-            }}
-          >
-            {post.body.split("\n\n").map((para, i) => (
-              <p key={i} style={{ marginBottom: "1.4em" }}>
-                {para}
-              </p>
-            ))}
-          </div>
+            className="post-body"
+            dangerouslySetInnerHTML={{ __html: post.body }}
+          />
+
+          <style>{`
+            .post-body {
+              font-family: var(--body-serif);
+              font-size: 1.05rem;
+              line-height: 1.85;
+              color: var(--text-secondary);
+            }
+            .post-body p { margin-bottom: 1.4em; }
+            .post-body h2 {
+              font-family: var(--serif);
+              font-size: 1.65rem;
+              font-weight: 500;
+              color: var(--text-primary);
+              margin: 1.8em 0 0.5em;
+              line-height: 1.2;
+              letter-spacing: -0.01em;
+            }
+            .post-body h3 {
+              font-family: var(--serif);
+              font-size: 1.25rem;
+              font-weight: 500;
+              color: var(--text-primary);
+              margin: 1.5em 0 0.4em;
+            }
+            .post-body blockquote {
+              border-left: 3px solid var(--accent);
+              margin: 1.8em 0;
+              padding: 6px 0 6px 24px;
+              font-style: italic;
+              color: var(--text-secondary);
+              font-size: 1.12rem;
+              line-height: 1.75;
+            }
+            .post-body ul, .post-body ol {
+              padding-left: 1.6em;
+              margin-bottom: 1.4em;
+            }
+            .post-body li { margin-bottom: 0.4em; }
+            .post-body a {
+              color: var(--accent);
+              text-decoration: underline;
+              text-underline-offset: 3px;
+            }
+            .post-body hr {
+              border: none;
+              border-top: 1px solid var(--border-bright);
+              margin: 2.4em 0;
+            }
+            .post-body strong { font-weight: 600; color: var(--text-primary); }
+
+            /* Drop cap on first paragraph */
+            .post-body > p:first-of-type::first-letter {
+              font-family: var(--serif);
+              font-size: 3.8rem;
+              font-weight: 600;
+              float: left;
+              line-height: 0.75;
+              margin: 6px 8px 0 0;
+              color: var(--accent);
+            }
+          `}</style>
 
           {/* Back */}
           <div

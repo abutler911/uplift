@@ -1,7 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { adminGetPosts, adminDeletePost } from "../api";
+import adminApi from "../api";
 import CategoryBadge from "../components/CategoryBadge";
+import Toast from "../components/Toast";
+import useToast from "../hooks/useToast";
 
 function formatDate(d) {
   return new Date(d).toLocaleDateString("en-US", {
@@ -11,14 +14,25 @@ function formatDate(d) {
   });
 }
 
+const SLOT_LABELS = ["⭐ Featured", "2nd", "3rd", "4th"];
+
+function getSlotLabel(index) {
+  return SLOT_LABELS[index] || null;
+}
+
 export default function Admin() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [deleting, setDeleting] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
 
-  // Check auth
+  // Drag state
+  const dragIndex = useRef(null);
+  const [dragOver, setDragOver] = useState(null);
+
   useEffect(() => {
     const token = localStorage.getItem("uplift_token");
     if (!token) navigate("/admin/login");
@@ -29,7 +43,14 @@ export default function Admin() {
     const params = {};
     if (filter !== "all") params.status = filter;
     adminGetPosts(params)
-      .then((res) => setPosts(res.data))
+      .then((res) => {
+        // Sort by position then publishedAt
+        const sorted = res.data.sort((a, b) => {
+          if (a.position !== b.position) return a.position - b.position;
+          return new Date(b.publishedAt) - new Date(a.publishedAt);
+        });
+        setPosts(sorted);
+      })
       .catch(() => navigate("/admin/login"))
       .finally(() => setLoading(false));
   };
@@ -44,8 +65,9 @@ export default function Admin() {
     try {
       await adminDeletePost(id);
       setPosts((p) => p.filter((post) => post._id !== id));
-    } catch (err) {
-      alert("Delete failed");
+      showToast("Post deleted", "info");
+    } catch {
+      showToast("Delete failed", "error");
     } finally {
       setDeleting(null);
     }
@@ -56,8 +78,52 @@ export default function Admin() {
     navigate("/admin/login");
   };
 
+  // ─── Drag handlers ───
+  const handleDragStart = (e, index) => {
+    dragIndex.current = index;
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOver(index);
+  };
+
+  const handleDrop = (e, index) => {
+    e.preventDefault();
+    if (dragIndex.current === null || dragIndex.current === index) return;
+
+    const reordered = [...posts];
+    const [moved] = reordered.splice(dragIndex.current, 1);
+    reordered.splice(index, 0, moved);
+    setPosts(reordered);
+    dragIndex.current = null;
+    setDragOver(null);
+  };
+
+  const handleDragEnd = () => {
+    dragIndex.current = null;
+    setDragOver(null);
+  };
+
+  const saveOrder = async () => {
+    setSaving(true);
+    try {
+      const publishedPosts = posts.filter((p) => p.status === "published");
+      const ids = publishedPosts.map((p) => p._id);
+      await adminApi.post("/posts/reorder", { ids });
+      showToast("Order saved!", "success");
+    } catch {
+      showToast("Failed to save order", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const published = posts.filter((p) => p.status === "published").length;
   const drafts = posts.filter((p) => p.status === "draft").length;
+  const publishedPosts = posts.filter((p) => p.status === "published");
 
   return (
     <div className="admin-shell">
@@ -124,7 +190,6 @@ export default function Admin() {
             {posts.length}
           </span>
         </button>
-
         <button
           className={`admin-nav-link${filter === "published" ? " active" : ""}`}
           onClick={() => setFilter("published")}
@@ -143,7 +208,6 @@ export default function Admin() {
             {published}
           </span>
         </button>
-
         <button
           className={`admin-nav-link${filter === "draft" ? " active" : ""}`}
           onClick={() => setFilter("draft")}
@@ -219,10 +283,55 @@ export default function Admin() {
               {posts.length} {posts.length === 1 ? "post" : "posts"}
             </p>
           </div>
-          <Link to="/admin/new" className="btn btn-primary">
-            + New Post
-          </Link>
+          <div style={{ display: "flex", gap: 8 }}>
+            {filter !== "draft" && publishedPosts.length > 1 && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={saveOrder}
+                disabled={saving}
+              >
+                {saving ? "Saving…" : "💾 Save Order"}
+              </button>
+            )}
+            <Link to="/admin/new" className="btn btn-primary btn-sm">
+              + New Post
+            </Link>
+          </div>
         </div>
+
+        {/* Drag hint */}
+        {filter !== "draft" && publishedPosts.length > 1 && (
+          <div
+            style={{
+              background: "var(--accent-dim)",
+              border: "1px solid var(--accent-mid)",
+              borderRadius: 6,
+              padding: "10px 14px",
+              marginBottom: 20,
+              fontFamily: "var(--mono)",
+              fontSize: "0.58rem",
+              letterSpacing: "0.08em",
+              color: "var(--accent)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />
+            </svg>
+            Drag published posts to reorder. Top post = Featured hero on
+            homepage. Hit "Save Order" when done.
+          </div>
+        )}
 
         {loading ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -253,96 +362,187 @@ export default function Admin() {
             <p>Create your first post to get started.</p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {posts.map((post) => (
-              <div
-                key={post._id}
-                style={{
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  padding: "16px 20px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      marginBottom: 5,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <CategoryBadge category={post.category} />
-                    <span
-                      className={`status-badge status-badge--${post.status}`}
-                    >
-                      {post.status}
-                    </span>
-                    {post.type === "curated" && (
-                      <span
-                        style={{
-                          fontFamily: "var(--mono)",
-                          fontSize: "0.46rem",
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          color: "var(--text-muted)",
-                        }}
-                      >
-                        Curated
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "var(--serif)",
-                      fontSize: "1.05rem",
-                      color: "var(--text-primary)",
-                      marginBottom: 3,
-                    }}
-                  >
-                    {post.title}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "var(--mono)",
-                      fontSize: "0.5rem",
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "var(--text-muted)",
-                    }}
-                  >
-                    {post.status === "published"
-                      ? `Published ${formatDate(post.publishedAt)}`
-                      : `Updated ${formatDate(post.updatedAt)}`}
-                  </div>
-                </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {posts.map((post, index) => {
+              const isDraggable = post.status === "published";
+              const publishedIndex = publishedPosts.findIndex(
+                (p) => p._id === post._id,
+              );
+              const slotLabel = isDraggable
+                ? getSlotLabel(publishedIndex)
+                : null;
+              const isOver = dragOver === index;
 
-                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <Link
-                    to={`/admin/edit/${post._id}`}
-                    className="btn btn-ghost btn-sm"
-                  >
-                    Edit
-                  </Link>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => handleDelete(post._id)}
-                    disabled={deleting === post._id}
-                  >
-                    {deleting === post._id ? "…" : "Delete"}
-                  </button>
+              return (
+                <div
+                  key={post._id}
+                  draggable={isDraggable}
+                  onDragStart={
+                    isDraggable ? (e) => handleDragStart(e, index) : undefined
+                  }
+                  onDragOver={
+                    isDraggable ? (e) => handleDragOver(e, index) : undefined
+                  }
+                  onDrop={isDraggable ? (e) => handleDrop(e, index) : undefined}
+                  onDragEnd={isDraggable ? handleDragEnd : undefined}
+                  style={{
+                    background: "var(--bg-card)",
+                    border: `1px solid ${isOver ? "var(--accent)" : "var(--border)"}`,
+                    borderRadius: 8,
+                    padding: "14px 18px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    flexWrap: "wrap",
+                    cursor: isDraggable ? "grab" : "default",
+                    transform: isOver ? "scale(1.01)" : "scale(1)",
+                    boxShadow: isOver
+                      ? "0 4px 20px rgba(193,122,60,0.15)"
+                      : "none",
+                    transition:
+                      "border-color 0.15s, transform 0.15s, box-shadow 0.15s",
+                    opacity: dragIndex.current === index ? 0.5 : 1,
+                  }}
+                >
+                  {/* Drag handle */}
+                  {isDraggable && (
+                    <div
+                      style={{
+                        color: "var(--text-muted)",
+                        flexShrink: 0,
+                        cursor: "grab",
+                      }}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <circle cx="9" cy="5" r="1.5" />
+                        <circle cx="15" cy="5" r="1.5" />
+                        <circle cx="9" cy="12" r="1.5" />
+                        <circle cx="15" cy="12" r="1.5" />
+                        <circle cx="9" cy="19" r="1.5" />
+                        <circle cx="15" cy="19" r="1.5" />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Slot label */}
+                  {slotLabel && (
+                    <div
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: "0.48rem",
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        color:
+                          publishedIndex === 0
+                            ? "var(--accent)"
+                            : "var(--text-muted)",
+                        background:
+                          publishedIndex === 0
+                            ? "var(--accent-dim)"
+                            : "var(--bg-elevated)",
+                        border: `1px solid ${publishedIndex === 0 ? "var(--accent-mid)" : "var(--border)"}`,
+                        padding: "2px 7px",
+                        borderRadius: 3,
+                        flexShrink: 0,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {slotLabel}
+                    </div>
+                  )}
+
+                  {/* Post info */}
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 5,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <CategoryBadge category={post.category} />
+                      <span
+                        className={`status-badge status-badge--${post.status}`}
+                      >
+                        {post.status}
+                      </span>
+                      {post.type === "curated" && (
+                        <span
+                          style={{
+                            fontFamily: "var(--mono)",
+                            fontSize: "0.46rem",
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          Curated
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--serif)",
+                        fontSize: "1.05rem",
+                        color: "var(--text-primary)",
+                        marginBottom: 3,
+                      }}
+                    >
+                      {post.title}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: "0.5rem",
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      {post.status === "published"
+                        ? `Published ${formatDate(post.publishedAt)}`
+                        : `Updated ${formatDate(post.updatedAt)}`}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <Link
+                      to={`/admin/edit/${post._id}`}
+                      className="btn btn-ghost btn-sm"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDelete(post._id)}
+                      disabled={deleting === post._id}
+                    >
+                      {deleting === post._id ? "…" : "Delete"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
+
+      {toast && (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </div>
   );
 }

@@ -525,9 +525,8 @@ export default function Home() {
     setPage(1);
   };
 
-  const heroPost = !activeCategory && page === 1 ? feedPosts[0] : null;
-  const feedItems =
-    !activeCategory && page === 1 ? feedPosts.slice(1) : feedPosts;
+  const heroPost = page === 1 && feedPosts.length > 0 ? feedPosts[0] : null;
+  const feedItems = page === 1 ? feedPosts.slice(1) : feedPosts;
 
   return (
     <>
@@ -606,86 +605,37 @@ export default function Home() {
       <QuoteStrip />
 
       <div className="container" style={{ paddingBottom: 80 }}>
-        {/* Hero */}
-        {heroPost && <HeroPost post={heroPost} />}
-
-        {/* Two-column layout */}
+        {/* ── Top section: Hero + Sidebar side by side ── */}
         <div
           className="two-col"
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 280px",
-            gap: "48px",
+            gridTemplateColumns: "1fr 300px",
+            gap: "40px",
             alignItems: "start",
+            marginBottom: 48,
           }}
         >
-          {/* Main feed */}
+          {/* Hero */}
           <div>
-            {/* Section label */}
-            <div
-              style={{
-                fontFamily: "var(--mono)",
-                fontSize: "0.54rem",
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "var(--accent)",
-                marginBottom: 20,
-                paddingBottom: 10,
-                borderBottom: "2px solid var(--accent)",
-                display: "inline-block",
-              }}
-            >
-              {activeCategory || "All Stories"}
-            </div>
-
-            {loading ? (
-              <>
+            {heroPost ? (
+              <HeroPost post={heroPost} />
+            ) : loading ? (
+              <div style={{ paddingBottom: 40 }}>
                 <SkeletonPost />
-                <SkeletonPost />
-                <SkeletonPost />
-              </>
-            ) : feedItems.length === 0 && !heroPost ? (
-              <div className="empty-state">
-                <h3>Nothing here yet.</h3>
-                <p>Check back soon — good things are coming.</p>
               </div>
             ) : (
-              feedItems.map((post) => <PostCard key={post._id} post={post} />)
-            )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div style={{ display: "flex", gap: 8, marginTop: 32 }}>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setPage((p) => p - 1)}
-                  disabled={page === 1}
-                >
-                  ← Prev
-                </button>
-                <span
-                  style={{
-                    fontFamily: "var(--mono)",
-                    fontSize: "0.56rem",
-                    color: "var(--text-muted)",
-                    padding: "7px 12px",
-                    letterSpacing: "0.1em",
-                  }}
-                >
-                  {page} / {totalPages}
-                </span>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page === totalPages}
-                >
-                  Next →
-                </button>
+              <div
+                className="empty-state"
+                style={{ textAlign: "left", padding: "40px 0" }}
+              >
+                <h3>Nothing published yet.</h3>
+                <p>Check back soon — good things are coming.</p>
               </div>
             )}
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar — sits right beside hero */}
           <aside
             style={{
               position: "sticky",
@@ -704,6 +654,82 @@ export default function Home() {
             />
           </aside>
         </div>
+
+        {/* ── Divider ── */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            marginBottom: 28,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--mono)",
+              fontSize: "0.54rem",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--accent)",
+              paddingBottom: 8,
+              borderBottom: "2px solid var(--accent)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {activeCategory || "All Stories"}
+          </div>
+          <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+        </div>
+
+        {/* ── Full-width feed below ── */}
+        <div className="post-grid">
+          {loading ? (
+            <>
+              <SkeletonPost />
+              <SkeletonPost />
+              <SkeletonPost />
+            </>
+          ) : feedItems.length === 0 && heroPost ? null : feedItems.length ===
+            0 ? (
+            <div className="empty-state">
+              <h3>Nothing here yet.</h3>
+              <p>Check back soon.</p>
+            </div>
+          ) : (
+            feedItems.map((post) => <PostCard key={post._id} post={post} />)
+          )}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{ display: "flex", gap: 8, marginTop: 40 }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page === 1}
+            >
+              ← Prev
+            </button>
+            <span
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: "0.56rem",
+                color: "var(--text-muted)",
+                padding: "7px 12px",
+                letterSpacing: "0.1em",
+              }}
+            >
+              {page} / {totalPages}
+            </span>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page === totalPages}
+            >
+              Next →
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Footer */}

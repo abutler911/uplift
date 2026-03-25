@@ -624,4 +624,7 @@ select.form-control {
   .nav-tagline {
     display: none;
   }
+  .two-col {
+    grid-template-columns: 1fr !important;
+  }
 }

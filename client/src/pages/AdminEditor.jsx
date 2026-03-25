@@ -4,6 +4,7 @@ import { adminGetPost, adminCreatePost, adminUpdatePost } from "../api";
 import RichTextEditor from "../components/RichTextEditor";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
+import SourceLinks from "../components/SourceLinks";
 
 const CATEGORIES = [
   "Small Wins",
@@ -254,6 +255,7 @@ export default function AdminEditor() {
             </Link>
           )}
         </div>
+        <SourceLinks />
       </aside>
 
       {/* Editor */}

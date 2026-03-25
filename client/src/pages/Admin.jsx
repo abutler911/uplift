@@ -5,6 +5,7 @@ import adminApi from "../api";
 import CategoryBadge from "../components/CategoryBadge";
 import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
+import SourceLinks from "../components/SourceLinks";
 
 function formatDate(d) {
   return new Date(d).toLocaleDateString("en-US", {
@@ -240,6 +241,7 @@ export default function Admin() {
           <button className="admin-nav-link" onClick={handleLogout}>
             Lock
           </button>
+          <SourceLinks />
         </div>
       </aside>
 
